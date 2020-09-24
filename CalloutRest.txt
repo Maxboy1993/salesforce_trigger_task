@@ -1,0 +1,61 @@
+public with sharing class AccountWebService {
+ private static String authorizationDomain = 'https://login.salesforce.com';
+	private static String restmServiceOrg2Domain = 'https://curious-shark-h9f90r-dev-ed.my.salesforce.com/services/apexrest/Accounts/';
+    
+    private static String getAuthToken(){
+        Http http = new Http();
+        HttpRequest req = new HttpRequest();
+        String token = '';
+        
+        Account__c setting = Account__c.getOrgDefaults();
+        
+        String clientId = setting.clienId__c;
+        String clientSecret = setting.clientSecret__c;
+        req.setMethod('POST');
+        req.setEndpoint(authorizationDomain+'/services/oauth2/token');
+        req.setBody('grant_type=password' +'&client_id='+clientId+
+                   '&client_secret=' + clientSecret +	
+                   '&username=' + EncodingUtil.urlEncode(setting.username__c, 'UTF-8') +
+                   '&password=' + EncodingUtil.urlEncode(setting.password__c+setting.securityToken__c, 'UTF-8'));
+        
+        HTTPResponse res = http.send(req);
+        System.debug('BODY: ' + res.getBody());
+        System.debug('STATUS: ' + res.getStatus());
+        System.debug(JSON.deserializeUntyped(res.getBody()));
+        
+        Map<String, Object> o =(Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+        for(String s : o.keySet()){
+            System.debug(s);
+            if( s == 'access_token'){
+                token = o.get(s).toString();
+            }
+        }
+        
+        System.debug(token);
+        return token;
+    }
+    
+    public static void callPostMethod(String name,String phone,String website){
+        Http http = new Http();
+        HttpRequest req = new HttpRequest();
+        req.setMethod('POST');
+       
+        String token = getAuthToken();
+        if(String.isEmpty(token)){
+            System.debug('Token not received');
+            return;
+        }
+        
+        System.debug(token);
+        req.setEndpoint(restmServiceOrg2Domain);
+        req.setHeader('Authorization', 'Bearer ' + token);
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody('{"name":"'+name+'","phone":"'+phone+'","website":"'+website+'"}');
+        
+        System.debug('Calling account service');
+                       
+        HTTPResponse res = http.send(req);
+        System.debug(res.getBody());        
+    }
+    
+}
